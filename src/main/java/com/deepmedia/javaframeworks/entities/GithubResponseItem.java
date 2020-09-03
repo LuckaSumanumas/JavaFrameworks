@@ -20,6 +20,9 @@ public class GithubResponseItem {
 	@Expose @SerializedName("license") 
 	private RepositoryLicense license;
 	
+	@Expose @SerializedName("owner") 
+	RepositoryOwner owner;
+	
 	@Expose @SerializedName("stargazers_count") 
 	private Integer starCount;
 	

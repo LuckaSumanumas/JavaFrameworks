@@ -4,7 +4,11 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import com.deepmedia.javaframeworks.entities.GithubResponseItem;
@@ -23,13 +27,17 @@ public class JavaFrameworksGateway {
 	
 	private RestTemplate restTemplate;
 	private Gson gson;
+	private String baseUrl;
+	private String token;
 	
-	public JavaFrameworksGateway() {
+	public JavaFrameworksGateway(String baseUrl, String token) {
 		restTemplate = new RestTemplate();
 		gson = new GsonBuilder().excludeFieldsWithoutExposeAnnotation().create();
+		this.baseUrl = baseUrl;
+		this.token = token;
 	}
 
-	public List<GithubResponseItem> retrieveSearchedRepoItems(String baseUrl, String searchStr) {
+	public List<GithubResponseItem> retrieveSearchedRepoItems(String searchStr) {
 		String url = baseUrl + searchStr;
 		
 		String responseStr = restTemplate.getForEntity(url, String.class).getBody();
@@ -39,8 +47,8 @@ public class JavaFrameworksGateway {
 		return itemList;
 	}
 	
-	public Integer retrieveNumberOfContributors(String baseUrl) {
-		String url = baseUrl + "?per_page=1&anon=true";
+	public Integer retrieveNumberOfContributors(String contrUrl) {
+		String url = contrUrl + "?per_page=1&anon=true";
 		
 		ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
 		List<String> links = response.getHeaders().get("link");
@@ -51,7 +59,7 @@ public class JavaFrameworksGateway {
 
 	}
 
-	public List<GithubResponseItem> retrieveUserStarredRepos(String baseUrl, String username) {
+	public List<GithubResponseItem> retrieveUserStarredRepos(String username) {
 		String url = baseUrl + "/users/" + username + "/starred";
 		
 		String responseStr = restTemplate.getForEntity(url, String.class).getBody();
@@ -80,6 +88,43 @@ public class JavaFrameworksGateway {
 
 		return itemList;
 	}
+
+	public Boolean changeRepoStar(String owner, String repo, Boolean star) {
+		Boolean isSuccessStarring = false;
+		Boolean isStarred = invokeRepoStar(owner, repo, HttpMethod.GET);
 	
+		if(isStarred && !star) {
+			//if repo starred and requrest for unstar then unstar
+			isSuccessStarring = invokeRepoStar(owner, repo, HttpMethod.DELETE);
+		} else if(!isStarred && star) {
+			//if repo is not starred and requrest for star then star
+			isSuccessStarring = invokeRepoStar(owner, repo, HttpMethod.PUT);
+		}
+		
+		return isSuccessStarring;
+	}
+	
+	private Boolean invokeRepoStar(String owner, String repo, HttpMethod method) {
+		String url = baseUrl + "/user/starred/" + owner + "/" + repo;
+		
+		HttpEntity<String> entity = new HttpEntity<String>(collectHeader());
+		
+		try {
+			ResponseEntity<String> response = 
+				restTemplate.exchange(url, method, entity, String.class);
+			return response.getStatusCode().is2xxSuccessful();
+		} catch(HttpClientErrorException e) {
+			return false;
+		}
+		
+	}
+	
+	private HttpHeaders collectHeader() {
+		HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+        
+        return headers;
+	}
+
 	
 }

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import com.deepmedia.javaframeworks.entities.GithubResponseItem;
 import com.deepmedia.javaframeworks.entities.JavaFramework;
 import com.deepmedia.javaframeworks.entities.KeyMetrics;
+import com.deepmedia.javaframeworks.entities.Starring;
 import com.deepmedia.javaframeworks.gateways.JavaFrameworksGateway;
 
 /**
@@ -33,14 +34,17 @@ public class JavaFrameworksService {
 	@Value( "${github.username}" )
 	private String username;
 	
+	@Value( "${github.api.token}" )
+	private String token;
+	
 	private JavaFrameworksGateway gateway;
 	
 	public List<JavaFramework> retrieveJavaFrameworks(String metric) {
 
-		gateway = new JavaFrameworksGateway();
+		gateway = new JavaFrameworksGateway(baseUrl, token);
 		
 		List<GithubResponseItem> frameworkRepos = 
-				gateway.retrieveSearchedRepoItems(baseUrl, searchStr);
+				gateway.retrieveSearchedRepoItems(searchStr);
 		List<JavaFramework> javaFrameworks = mapItems(frameworkRepos);
 		sortJavaFrameworks(javaFrameworks, metric);
 		
@@ -48,12 +52,31 @@ public class JavaFrameworksService {
 
 	}
 
+	public String starJavaFrameworkRepo(String repo, Starring starring) throws Exception {
+		
+		gateway = new JavaFrameworksGateway(baseUrl, token);
+		
+		 Boolean isSuccessStarring = 
+				 gateway.changeRepoStar(starring.getOwner(), repo, starring.getStar());
+		 
+		 if(isSuccessStarring) {
+			 if(starring.getStar()) {
+				 return "Repository successfuly starred";
+			 } else {
+				 return "Repository successfuly unstarred";
+			 }
+		 } else {
+			 throw new Exception("Failed to change repository starring");
+		 }
+		 
+	}
+	
 	private List<JavaFramework> mapItems(
 			List<GithubResponseItem> frameworkRepos) {
 		List<JavaFramework> javaFrameworks = new ArrayList<>();
 
 		List<GithubResponseItem> starredRepos = 
-				gateway.retrieveUserStarredRepos(baseUrl, username);
+				gateway.retrieveUserStarredRepos(username);
 		
 		for (GithubResponseItem item : frameworkRepos) {
 			Integer numOfContr = gateway.retrieveNumberOfContributors(item.getContrUrl());
@@ -104,6 +127,5 @@ public class JavaFrameworksService {
 		}
 		
 	}
-	
 
 }
