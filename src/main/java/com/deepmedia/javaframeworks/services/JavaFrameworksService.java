@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -23,8 +24,11 @@ import com.deepmedia.javaframeworks.gateways.JavaFrameworksGateway;
 @Service
 public class JavaFrameworksService {
 	
-	@Value( "${github.url}" )
-	private String url;
+	@Value( "${github.api.baseurl}" )
+	private String baseUrl;
+	
+	@Value( "${github.api.search.frameworks}" )
+	private String searchStr;
 	
 	@Value( "${github.username}" )
 	private String username;
@@ -35,27 +39,30 @@ public class JavaFrameworksService {
 
 		gateway = new JavaFrameworksGateway();
 		
-		List<GithubResponseItem> itemList = gateway.retrieveRepoItems(url);
-		List<JavaFramework> javaFrameworks = mapItems(itemList);
+		List<GithubResponseItem> frameworkRepos = 
+				gateway.retrieveSearchedRepoItems(baseUrl, searchStr);
+		List<JavaFramework> javaFrameworks = mapItems(frameworkRepos);
 		sortJavaFrameworks(javaFrameworks, metric);
 		
 		return javaFrameworks;
 
 	}
 
-	private List<JavaFramework> mapItems(List<GithubResponseItem> itemList) {
+	private List<JavaFramework> mapItems(
+			List<GithubResponseItem> frameworkRepos) {
 		List<JavaFramework> javaFrameworks = new ArrayList<>();
 
-		for (GithubResponseItem item : itemList) {
-			JavaFramework javaFramework = new JavaFramework();
-			javaFramework.setName(item.getName());
-			javaFramework.setDescription(item.getDescription());
-			javaFramework.setLicenceName(item.getLicense().getName());
-			javaFramework.setStarCount(item.getStarCount());
-			javaFramework.setApiUrl(item.getApiUrl());
-			javaFramework.setHtmlUrl(item.getHtmlUrl());
-			javaFramework.setNumOfContr(
-					gateway.retrieveNumberOfContr(item.getContrUrl()));
+		List<GithubResponseItem> starredRepos = 
+				gateway.retrieveUserStarredRepos(baseUrl, username);
+		
+		for (GithubResponseItem item : frameworkRepos) {
+			Integer numOfContr = gateway.retrieveNumberOfContributors(item.getContrUrl());
+			
+			Boolean isStarred = starredRepos.stream().filter(
+					s -> s.getRepoId().equals(item.getRepoId())).
+					collect(Collectors.toList()).size() > 0;
+			
+			JavaFramework javaFramework = collectFrameworkDetails(item, numOfContr, isStarred);
 			
 			javaFrameworks.add(javaFramework);
 		}
@@ -63,6 +70,22 @@ public class JavaFrameworksService {
 		return javaFrameworks;
 	}
 
+	private JavaFramework collectFrameworkDetails(
+			GithubResponseItem item, Integer numOfContr, Boolean isStarred) {
+		JavaFramework javaFramework = new JavaFramework();
+		
+		javaFramework.setRepoId(item.getRepoId());
+		javaFramework.setName(item.getName());
+		javaFramework.setDescription(item.getDescription());
+		javaFramework.setLicenceName(item.getLicense().getName());
+		javaFramework.setStarCount(item.getStarCount());
+		javaFramework.setApiUrl(item.getApiUrl());
+		javaFramework.setHtmlUrl(item.getHtmlUrl());
+		javaFramework.setNumOfContr(numOfContr);
+		javaFramework.setIsUserStarRepo(isStarred);
+		
+		return javaFramework;
+	}
 	
 	private void sortJavaFrameworks(List<JavaFramework> javaFrameworks, String metric) {
 		

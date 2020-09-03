@@ -5,6 +5,7 @@ import lombok.Data;
 @Data
 public class JavaFramework {
 
+	private Integer repoId;
 	private String name;
 	private String description;
 	private String licenceName;

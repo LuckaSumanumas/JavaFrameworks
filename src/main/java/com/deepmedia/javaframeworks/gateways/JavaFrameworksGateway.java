@@ -14,16 +14,24 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 
+/**
+ * 
+ * @author Mindaugas Lucka
+ *
+ */
 public class JavaFrameworksGateway {
 	
 	private RestTemplate restTemplate;
+	private Gson gson;
 	
 	public JavaFrameworksGateway() {
 		restTemplate = new RestTemplate();
+		gson = new GsonBuilder().excludeFieldsWithoutExposeAnnotation().create();
 	}
 
-	
-	public List<GithubResponseItem> retrieveRepoItems(String url) {
+	public List<GithubResponseItem> retrieveSearchedRepoItems(String baseUrl, String searchStr) {
+		String url = baseUrl + searchStr;
+		
 		String responseStr = restTemplate.getForEntity(url, String.class).getBody();
 		JsonElement jsonElement = JsonParser.parseString(responseStr).getAsJsonObject().get("items");
 		List<GithubResponseItem> itemList = retrieveListOfItems(jsonElement);
@@ -31,9 +39,32 @@ public class JavaFrameworksGateway {
 		return itemList;
 	}
 	
+	public Integer retrieveNumberOfContributors(String baseUrl) {
+		String url = baseUrl + "?per_page=1&anon=true";
+		
+		ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+		List<String> links = response.getHeaders().get("link");
+		String numberOfContrStr = links.get(0).split(",")[1].split("page")[2].split("=")[1].split(">")[0];
+		Integer numberOfContr = Integer.valueOf(numberOfContrStr);
+		
+		return numberOfContr;
+
+	}
+
+	public List<GithubResponseItem> retrieveUserStarredRepos(String baseUrl, String username) {
+		String url = baseUrl + "/users/" + username + "/starred";
+		
+		String responseStr = restTemplate.getForEntity(url, String.class).getBody();
+		Type listType = new TypeToken<ArrayList<GithubResponseItem>>(){}.getType();
+		List<GithubResponseItem> itemList = gson.fromJson(responseStr, listType); 
+		
+		return itemList;
+		
+	}
+	
+	
 	private List<GithubResponseItem> retrieveListOfItems(JsonElement jsonElement) {
 		
-		Gson gson = new GsonBuilder().excludeFieldsWithoutExposeAnnotation().create();
 		List<GithubResponseItem> itemList = new ArrayList<>();
 		
 		if (jsonElement.isJsonObject()) {
@@ -42,24 +73,13 @@ public class JavaFrameworksGateway {
 			itemList.add(item);
 		} else if (jsonElement.isJsonArray()) {
 			// The returned list has more than 1 element
-			Type projectListType = new TypeToken<List<GithubResponseItem>>() {
+			Type listType = new TypeToken<List<GithubResponseItem>>() {
 			}.getType();
-			itemList = gson.fromJson(jsonElement, projectListType);
+			itemList = gson.fromJson(jsonElement, listType);
 		}
 
 		return itemList;
 	}
 	
-	public Integer retrieveNumberOfContr(String url) {
-		ResponseEntity<String> response = restTemplate.getForEntity(
-				url + "?per_page=1&anon=true", String.class);
-		
-		List<String> links = response.getHeaders().get("link");
-		String numberOfContrStr = links.get(0).split(",")[1].split("page")[2].split("=")[1].split(">")[0];
-		
-		Integer numberOfContr = Integer.valueOf(numberOfContrStr);
-		
-		return numberOfContr;
-
-	}
+	
 }

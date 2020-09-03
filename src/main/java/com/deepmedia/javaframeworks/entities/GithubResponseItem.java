@@ -7,6 +7,10 @@ import lombok.Data;
 
 @Data
 public class GithubResponseItem {
+	
+	@Expose @SerializedName("id") 
+	private Integer repoId;
+	
 	@Expose @SerializedName("name") 
 	private String name;
 	
