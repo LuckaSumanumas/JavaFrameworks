@@ -13,6 +13,7 @@ import com.deepmedia.javaframeworks.entities.GithubResponseItem;
 import com.deepmedia.javaframeworks.entities.JavaFramework;
 import com.deepmedia.javaframeworks.entities.KeyMetrics;
 import com.deepmedia.javaframeworks.entities.Starring;
+import com.deepmedia.javaframeworks.entities.UserAuth;
 import com.deepmedia.javaframeworks.gateways.JavaFrameworksGateway;
 
 /**
@@ -31,17 +32,12 @@ public class JavaFrameworksService {
 	@Value( "${github.api.search.frameworks}" )
 	private String searchStr;
 	
-	@Value( "${github.username}" )
-	private String username;
-	
-	@Value( "${github.api.token}" )
-	private String token;
-	
 	private JavaFrameworksGateway gateway;
 	
-	public List<JavaFramework> retrieveJavaFrameworks(String metric) {
+	public List<JavaFramework> retrieveJavaFrameworks(
+			String metric, UserAuth auth) {
 
-		gateway = new JavaFrameworksGateway(baseUrl, token);
+		gateway = new JavaFrameworksGateway(baseUrl, auth);
 		
 		List<GithubResponseItem> frameworkRepos = 
 				gateway.retrieveSearchedRepoItems(searchStr);
@@ -52,9 +48,10 @@ public class JavaFrameworksService {
 
 	}
 
-	public String starJavaFrameworkRepo(String repo, Starring starring) throws Exception {
+	public String starJavaFrameworkRepo(
+			String repo, Starring starring, UserAuth auth) throws Exception {
 		
-		gateway = new JavaFrameworksGateway(baseUrl, token);
+		gateway = new JavaFrameworksGateway(baseUrl, auth);
 		
 		 Boolean isSuccessStarring = 
 				 gateway.changeRepoStar(starring.getOwner(), repo, starring.getStar());
@@ -76,14 +73,14 @@ public class JavaFrameworksService {
 		List<JavaFramework> javaFrameworks = new ArrayList<>();
 
 		List<GithubResponseItem> starredRepos = 
-				gateway.retrieveUserStarredRepos(username);
+				gateway.retrieveUserStarredRepos();
 		
 		for (GithubResponseItem item : frameworkRepos) {
 			Integer numOfContr = gateway.retrieveNumberOfContributors(item.getContrUrl());
 			
-			Boolean isStarred = starredRepos.stream().filter(
+			Boolean isStarred = starredRepos.size() > 0 ? starredRepos.stream().filter(
 					s -> s.getRepoId().equals(item.getRepoId())).
-					collect(Collectors.toList()).size() > 0;
+					collect(Collectors.toList()).size() > 0 : null;
 			
 			JavaFramework javaFramework = collectFrameworkDetails(item, numOfContr, isStarred);
 			
@@ -99,6 +96,7 @@ public class JavaFrameworksService {
 		
 		javaFramework.setRepoId(item.getRepoId());
 		javaFramework.setName(item.getName());
+		javaFramework.setOwner(item.getOwner().getLogin());
 		javaFramework.setDescription(item.getDescription());
 		javaFramework.setLicenceName(item.getLicense().getName());
 		javaFramework.setStarCount(item.getStarCount());

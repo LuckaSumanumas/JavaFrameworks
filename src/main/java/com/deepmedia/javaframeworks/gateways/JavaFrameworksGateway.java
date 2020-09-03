@@ -2,6 +2,7 @@ package com.deepmedia.javaframeworks.gateways;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 import org.springframework.http.HttpEntity;
@@ -12,6 +13,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import com.deepmedia.javaframeworks.entities.GithubResponseItem;
+import com.deepmedia.javaframeworks.entities.UserAuth;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -28,19 +30,22 @@ public class JavaFrameworksGateway {
 	private RestTemplate restTemplate;
 	private Gson gson;
 	private String baseUrl;
-	private String token;
+	private UserAuth auth;
 	
-	public JavaFrameworksGateway(String baseUrl, String token) {
+	public JavaFrameworksGateway(String baseUrl, UserAuth auth) {
 		restTemplate = new RestTemplate();
 		gson = new GsonBuilder().excludeFieldsWithoutExposeAnnotation().create();
 		this.baseUrl = baseUrl;
-		this.token = token;
+		this.auth = auth;
 	}
 
 	public List<GithubResponseItem> retrieveSearchedRepoItems(String searchStr) {
 		String url = baseUrl + searchStr;
 		
-		String responseStr = restTemplate.getForEntity(url, String.class).getBody();
+		HttpEntity<String> entity = new HttpEntity<String>(collectHeader());
+		String responseStr = restTemplate.exchange(
+				url, HttpMethod.GET, entity, String.class).getBody();
+		
 		JsonElement jsonElement = JsonParser.parseString(responseStr).getAsJsonObject().get("items");
 		List<GithubResponseItem> itemList = retrieveListOfItems(jsonElement);
 		
@@ -50,7 +55,10 @@ public class JavaFrameworksGateway {
 	public Integer retrieveNumberOfContributors(String contrUrl) {
 		String url = contrUrl + "?per_page=1&anon=true";
 		
-		ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+		HttpEntity<String> entity = new HttpEntity<String>(collectHeader());
+		ResponseEntity<String> response = restTemplate.exchange(
+				url, HttpMethod.GET, entity, String.class);
+		
 		List<String> links = response.getHeaders().get("link");
 		String numberOfContrStr = links.get(0).split(",")[1].split("page")[2].split("=")[1].split(">")[0];
 		Integer numberOfContr = Integer.valueOf(numberOfContrStr);
@@ -59,12 +67,18 @@ public class JavaFrameworksGateway {
 
 	}
 
-	public List<GithubResponseItem> retrieveUserStarredRepos(String username) {
-		String url = baseUrl + "/users/" + username + "/starred";
+	public List<GithubResponseItem> retrieveUserStarredRepos() {
+		List<GithubResponseItem> itemList = new ArrayList<>();
 		
-		String responseStr = restTemplate.getForEntity(url, String.class).getBody();
-		Type listType = new TypeToken<ArrayList<GithubResponseItem>>(){}.getType();
-		List<GithubResponseItem> itemList = gson.fromJson(responseStr, listType); 
+		if(auth.getUsername() != null) {
+			String url = baseUrl + "/users/" + auth.getUsername() + "/starred";
+			
+			HttpEntity<String> entity = new HttpEntity<String>(collectHeader());
+			String responseStr = restTemplate.exchange(
+					url, HttpMethod.GET, entity, String.class).getBody();
+			Type listType = new TypeToken<ArrayList<GithubResponseItem>>(){}.getType();
+			itemList = gson.fromJson(responseStr, listType); 
+		} 
 		
 		return itemList;
 		
@@ -121,8 +135,13 @@ public class JavaFrameworksGateway {
 	
 	private HttpHeaders collectHeader() {
 		HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "Bearer " + token);
-        
+		
+		if(auth.getUsername() != null && auth.getPassword() != null) {
+			String authStr = auth.getUsername() + ":" + auth.getPassword();
+			String encoded = Base64.getEncoder().encodeToString(authStr.getBytes());
+	        headers.set("Authorization", "Basic " + encoded);
+		}
+		
         return headers;
 	}
 
