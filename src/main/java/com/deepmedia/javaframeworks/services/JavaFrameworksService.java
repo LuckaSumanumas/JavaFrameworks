@@ -20,7 +20,7 @@ import com.deepmedia.javaframeworks.gateways.JavaFrameworksGateway;
  * 
  * @author Mindaugas Lucka
  * 
- * Service for retrieving java frameworks from GitHub
+ * Service for retrieving and updating java frameworks in/from GitHub
  *
  */
 @Service
@@ -116,9 +116,9 @@ public class JavaFrameworksService {
         Comparator<JavaFramework> comparatorByStarCount = (JavaFramework jf1, JavaFramework jf2) -> 
         jf1.getStarCount().compareTo( jf2.getStarCount());
         
-		if(KeyMetrics.NUM_OF_CONTR.getName().equals(metric.toLowerCase())) {
+		if(metric!=null && KeyMetrics.NUM_OF_CONTR.getName().equals(metric.toLowerCase())) {
 			Collections.sort(javaFrameworks, comparatorByNumOfContr);
-		} else if(KeyMetrics.STAR_COUNT.getName().equals(metric.toLowerCase())) {
+		} else if(metric!=null && KeyMetrics.STAR_COUNT.getName().equals(metric.toLowerCase())) {
 			Collections.sort(javaFrameworks, comparatorByStarCount);
 		} else {
 			Collections.sort(javaFrameworks, comparatorByStarCount);

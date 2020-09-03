@@ -32,7 +32,7 @@ public class JavaFrameworksController {
 	@Autowired
     private JavaFrameworksService service;
 	
-	@GetMapping(value = "/java-frameworks")
+	@GetMapping("/java-frameworks")
 	public ResponseEntity<?> retrieveFrameworks(
 			@RequestHeader Map<String, String> headers,
 			@RequestParam(required = false) String metric) {
@@ -48,7 +48,7 @@ public class JavaFrameworksController {
 		}
 	}
 	
-	@PatchMapping(value = "/java-frameworks/{name}")
+	@PatchMapping("/java-frameworks/{name}")
 	public ResponseEntity<?> updateRepoStarring(
 			@RequestHeader Map<String, String> headers,
 			@PathVariable String name,
