@@ -1,23 +1,17 @@
 package com.deepmedia.javaframeworks.services;
 
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import com.deepmedia.javaframeworks.entities.GithubResponseItem;
 import com.deepmedia.javaframeworks.entities.JavaFramework;
 import com.deepmedia.javaframeworks.entities.KeyMetrics;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParser;
-import com.google.gson.reflect.TypeToken;
+import com.deepmedia.javaframeworks.gateways.JavaFrameworksGateway;
 
 /**
  * 
@@ -28,40 +22,25 @@ import com.google.gson.reflect.TypeToken;
  */
 @Service
 public class JavaFrameworksService {
-
-	final private String javaFrameworks = "https://api.github.com/search/repositories?q=framework in:name,description+language:java&per_page=10&sort=stars&order=desc";
-	private RestTemplate restTemplate = new RestTemplate();
 	
-	public List<JavaFramework> retrieveListOfJavaFrameworks(String metric) {
+	@Value( "${github.url}" )
+	private String url;
+	
+	@Value( "${github.username}" )
+	private String username;
+	
+	private JavaFrameworksGateway gateway;
+	
+	public List<JavaFramework> retrieveJavaFrameworks(String metric) {
 
-		String responseStr = restTemplate.getForEntity(javaFrameworks, String.class).getBody();
-		JsonElement jsonElement = JsonParser.parseString(responseStr).getAsJsonObject().get("items");
-		List<GithubResponseItem> itemList = retrieveListOfItems(jsonElement);
+		gateway = new JavaFrameworksGateway();
+		
+		List<GithubResponseItem> itemList = gateway.retrieveRepoItems(url);
 		List<JavaFramework> javaFrameworks = mapItems(itemList);
-
 		sortJavaFrameworks(javaFrameworks, metric);
 		
 		return javaFrameworks;
 
-	}
-
-	private List<GithubResponseItem> retrieveListOfItems(JsonElement jsonElement) {
-		
-		Gson gson = new GsonBuilder().excludeFieldsWithoutExposeAnnotation().create();
-		List<GithubResponseItem> itemList = new ArrayList<>();
-		
-		if (jsonElement.isJsonObject()) {
-			// The returned list has only 1 element
-			GithubResponseItem item = gson.fromJson(jsonElement, GithubResponseItem.class);
-			itemList.add(item);
-		} else if (jsonElement.isJsonArray()) {
-			// The returned list has more than 1 element
-			Type projectListType = new TypeToken<List<GithubResponseItem>>() {
-			}.getType();
-			itemList = gson.fromJson(jsonElement, projectListType);
-		}
-
-		return itemList;
 	}
 
 	private List<JavaFramework> mapItems(List<GithubResponseItem> itemList) {
@@ -75,7 +54,8 @@ public class JavaFrameworksService {
 			javaFramework.setStarCount(item.getStarCount());
 			javaFramework.setApiUrl(item.getApiUrl());
 			javaFramework.setHtmlUrl(item.getHtmlUrl());
-			javaFramework.setNumOfContr(retrieveNumberOfContr(item.getContrUrl()));
+			javaFramework.setNumOfContr(
+					gateway.retrieveNumberOfContr(item.getContrUrl()));
 			
 			javaFrameworks.add(javaFramework);
 		}
@@ -83,18 +63,6 @@ public class JavaFrameworksService {
 		return javaFrameworks;
 	}
 
-	private Integer retrieveNumberOfContr(String contrApiUrl) {
-		ResponseEntity<String> response = restTemplate.getForEntity(
-				contrApiUrl + "?per_page=1&anon=true", String.class);
-		
-		List<String> links = response.getHeaders().get("link");
-		String numberOfContrStr = links.get(0).split(",")[1].split("page")[2].split("=")[1].split(">")[0];
-		
-		Integer numberOfContr = Integer.valueOf(numberOfContrStr);
-		
-		return numberOfContr;
-
-	}
 	
 	private void sortJavaFrameworks(List<JavaFramework> javaFrameworks, String metric) {
 		
@@ -105,9 +73,11 @@ public class JavaFrameworksService {
         jf1.getStarCount().compareTo( jf2.getStarCount());
         
 		if(KeyMetrics.NUM_OF_CONTR.getName().equals(metric.toLowerCase())) {
-			Collections.sort(javaFrameworks, comparatorByNumOfContr.reversed());
+			Collections.sort(javaFrameworks, comparatorByNumOfContr);
 		} else if(KeyMetrics.STAR_COUNT.getName().equals(metric.toLowerCase())) {
-			Collections.sort(javaFrameworks, comparatorByStarCount.reversed());
+			Collections.sort(javaFrameworks, comparatorByStarCount);
+		} else {
+			Collections.sort(javaFrameworks, comparatorByStarCount);
 		}
 		
 	}
