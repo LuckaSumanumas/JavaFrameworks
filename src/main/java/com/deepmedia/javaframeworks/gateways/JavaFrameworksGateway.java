@@ -5,6 +5,10 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -26,24 +30,27 @@ import com.google.gson.reflect.TypeToken;
  * @author Mindaugas Lucka
  *
  */
+@Component
 public class JavaFrameworksGateway {
 	
+	@Value( "${github.api.baseurl}" )
+	private String baseUrl;
+	
+	@Value( "${github.api.search.frameworks}" )
+	private String searchStr;
+	
+	@Autowired
 	private RestTemplate restTemplate;
 	private Gson gson;
-	private String baseUrl;
-	private UserAuth auth;
 	
-	public JavaFrameworksGateway(String baseUrl, UserAuth auth) {
-		restTemplate = new RestTemplate();
+	public JavaFrameworksGateway() {
 		gson = new GsonBuilder().excludeFieldsWithoutExposeAnnotation().create();
-		this.baseUrl = baseUrl;
-		this.auth = auth;
 	}
 
-	public List<GithubResponseItem> retrieveSearchedRepoItems(String searchStr) {
+	public List<GithubResponseItem> retrieveSearchedRepoItems(UserAuth auth) {
 		String url = baseUrl + searchStr;
 		
-		HttpEntity<String> entity = new HttpEntity<String>(collectHeader());
+		HttpEntity<String> entity = new HttpEntity<String>(collectHeader(auth));
 		String responseStr = restTemplate.exchange(
 				url, HttpMethod.GET, entity, String.class).getBody();
 		
@@ -53,10 +60,10 @@ public class JavaFrameworksGateway {
 		return itemList;
 	}
 	
-	public Integer retrieveNumberOfContributors(String contrUrl) {
+	public Integer retrieveNumberOfContributors(String contrUrl, UserAuth auth) {
 		String url = contrUrl + "?per_page=1&anon=true";
 		
-		HttpEntity<String> entity = new HttpEntity<String>(collectHeader());
+		HttpEntity<String> entity = new HttpEntity<String>(collectHeader(auth));
 		ResponseEntity<String> response = restTemplate.exchange(
 				url, HttpMethod.GET, entity, String.class);
 		
@@ -68,13 +75,13 @@ public class JavaFrameworksGateway {
 
 	}
 
-	public List<GithubResponseItem> retrieveUserStarredRepos() {
+	public List<GithubResponseItem> retrieveUserStarredRepos(UserAuth auth) {
 		List<GithubResponseItem> itemList = new ArrayList<>();
 		
 		if(auth.getUsername() != null) {
 			String url = baseUrl + "/users/" + auth.getUsername() + "/starred";
 			
-			HttpEntity<String> entity = new HttpEntity<String>(collectHeader());
+			HttpEntity<String> entity = new HttpEntity<String>(collectHeader(auth));
 			String responseStr = restTemplate.exchange(
 					url, HttpMethod.GET, entity, String.class).getBody();
 			Type listType = new TypeToken<ArrayList<GithubResponseItem>>(){}.getType();
@@ -104,25 +111,28 @@ public class JavaFrameworksGateway {
 		return itemList;
 	}
 
-	public Boolean changeRepoStar(String owner, String repo, Boolean star) {
+	public Boolean changeRepoStar(
+			String owner, String repo, Boolean star, UserAuth auth) {
 		Boolean isSuccessStarring = false;
-		Boolean isStarred = invokeRepoStar(owner, repo, HttpMethod.GET);
+		Boolean isStarred = invokeRepoStar(owner, repo, HttpMethod.GET, auth);
 	
 		if(isStarred && !star) {
-			//if repo starred and requrest for unstar then unstar
-			isSuccessStarring = invokeRepoStar(owner, repo, HttpMethod.DELETE);
+			//if repo starred and request for unstar then unstar
+			isSuccessStarring = invokeRepoStar(owner, repo, HttpMethod.DELETE, auth);
 		} else if(!isStarred && star) {
 			//if repo is not starred and requrest for star then star
-			isSuccessStarring = invokeRepoStar(owner, repo, HttpMethod.PUT);
+			isSuccessStarring = invokeRepoStar(owner, repo, HttpMethod.PUT, auth);
 		}
 		
 		return isSuccessStarring;
 	}
 	
-	private Boolean invokeRepoStar(String owner, String repo, HttpMethod method) {
+	private Boolean invokeRepoStar(
+			String owner, String repo, HttpMethod method, UserAuth auth) {
 		String url = baseUrl + "/user/starred/" + owner + "/" + repo;
+		RestTemplate restTemplate = new RestTemplate();
 		
-		HttpEntity<String> entity = new HttpEntity<String>(collectHeader());
+		HttpEntity<String> entity = new HttpEntity<String>(collectHeader(auth));
 		
 		try {
 			ResponseEntity<String> response = 
@@ -134,7 +144,7 @@ public class JavaFrameworksGateway {
 		
 	}
 	
-	private HttpHeaders collectHeader() {
+	private HttpHeaders collectHeader(UserAuth auth) {
 		HttpHeaders headers = new HttpHeaders();
 		
 		if(auth.getUsername() != null && auth.getPassword() != null) {
@@ -146,5 +156,8 @@ public class JavaFrameworksGateway {
         return headers;
 	}
 
-	
+	@Bean
+	public RestTemplate restTemplate(RestTemplateBuilder builder) {
+	    return builder.build();
+	}
 }

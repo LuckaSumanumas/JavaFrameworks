@@ -6,7 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.deepmedia.javaframeworks.entities.GithubResponseItem;
@@ -20,28 +20,22 @@ import com.deepmedia.javaframeworks.gateways.JavaFrameworksGateway;
  * 
  * @author Mindaugas Lucka
  * 
- * Service for retrieving and updating java frameworks in/from GitHub
+ * Service for retrieving and updating java frameworks from/in GitHub
  *
  */
 @Service
 public class JavaFrameworksService {
 	
-	@Value( "${github.api.baseurl}" )
-	private String baseUrl;
-	
-	@Value( "${github.api.search.frameworks}" )
-	private String searchStr;
-	
+	@Autowired
 	private JavaFrameworksGateway gateway;
+
 	
 	public List<JavaFramework> retrieveJavaFrameworks(
 			String metric, UserAuth auth) {
-
-		gateway = new JavaFrameworksGateway(baseUrl, auth);
 		
 		List<GithubResponseItem> frameworkRepos = 
-				gateway.retrieveSearchedRepoItems(searchStr);
-		List<JavaFramework> javaFrameworks = mapItems(frameworkRepos);
+				gateway.retrieveSearchedRepoItems(auth);
+		List<JavaFramework> javaFrameworks = mapItems(frameworkRepos, auth);
 		sortJavaFrameworks(javaFrameworks, metric);
 		
 		return javaFrameworks;
@@ -51,10 +45,8 @@ public class JavaFrameworksService {
 	public String starJavaFrameworkRepo(
 			String repo, Starring starring, UserAuth auth) throws Exception {
 		
-		gateway = new JavaFrameworksGateway(baseUrl, auth);
-		
-		 Boolean isSuccessStarring = 
-				 gateway.changeRepoStar(starring.getOwner(), repo, starring.getStar());
+		 Boolean isSuccessStarring = gateway.changeRepoStar(
+				 starring.getOwner(), repo, starring.getStar(), auth);
 		 
 		 if(isSuccessStarring) {
 			 if(starring.getStar()) {
@@ -69,14 +61,14 @@ public class JavaFrameworksService {
 	}
 	
 	private List<JavaFramework> mapItems(
-			List<GithubResponseItem> frameworkRepos) {
+			List<GithubResponseItem> frameworkRepos, UserAuth auth) {
 		List<JavaFramework> javaFrameworks = new ArrayList<>();
 
 		List<GithubResponseItem> starredRepos = 
-				gateway.retrieveUserStarredRepos();
+				gateway.retrieveUserStarredRepos(auth);
 		
 		for (GithubResponseItem item : frameworkRepos) {
-			Integer numOfContr = gateway.retrieveNumberOfContributors(item.getContrUrl());
+			Integer numOfContr = gateway.retrieveNumberOfContributors(item.getContrUrl(), auth);
 			
 			Boolean isStarred = starredRepos.size() > 0 ? starredRepos.stream().filter(
 					s -> s.getRepoId().equals(item.getRepoId())).

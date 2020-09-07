@@ -3,6 +3,8 @@ package com.deepmedia.javaframeworks.controllers;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +34,8 @@ public class JavaFrameworksController {
 	@Autowired
     private JavaFrameworksService service;
 	
+	private Logger logger = LoggerFactory.getLogger(JavaFrameworksController.class);
+	
 	@GetMapping("/java-frameworks")
 	public ResponseEntity<?> retrieveFrameworks(
 			@RequestHeader Map<String, String> headers,
@@ -43,7 +47,7 @@ public class JavaFrameworksController {
 			List<JavaFramework> response = service.retrieveJavaFrameworks(metric, auth);
 			return ResponseEntity.status(HttpStatus.OK).body(response);
 		} catch (Exception e) {
-			System.out.println("failure: " + e.getMessage());
+			logger.error("Failed to retrieve java frameworks details: " + e.getMessage());
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
 		}
 	}
@@ -60,6 +64,7 @@ public class JavaFrameworksController {
 			String response = service.starJavaFrameworkRepo(name, starring, auth);
 			return ResponseEntity.status(HttpStatus.OK).body(response);
 		} catch (Exception e) {
+			logger.error("Failed to change starring for java framework " + name + ": " + e.getMessage());
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
 		}
 		
