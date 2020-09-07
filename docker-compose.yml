@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  java-frameworks-app-container:
+    image: java-frameworks-app:1
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    volumes:
+      - /data/java-frameworks-app
+    ports:
+      - "8085:8085"
